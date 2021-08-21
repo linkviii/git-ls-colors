@@ -1,5 +1,18 @@
 use std::path::Path;
 
+fn find_git_root() -> Box<Path> {
+    let  dot = Path::new(".").canonicalize().unwrap();
+
+    let mut here = dot.as_path();
+
+    while !here.join(".git").exists() {
+        here = here.parent().unwrap();
+    }
+
+    None
+}
+
+
 fn main() {
     println!("Hello, world!");
 
