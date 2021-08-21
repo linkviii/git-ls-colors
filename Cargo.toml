@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 git2 = "0.13"
 lscolors = "0.7"
+pathdiff = "0.2"
