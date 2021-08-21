@@ -1,3 +1,5 @@
+use std::path::Path;
+
 fn main() {
     println!("Hello, world!");
 
@@ -10,13 +12,38 @@ fn main() {
     let ansi_style = style.map(Style::to_ansi_term_style).unwrap_or_default();
     println!("{}", ansi_style.paint(path));
     // ---------
+    println!("--------------");
     use git2::Repository;
 
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
         Err(e) => panic!("failed to open: {}", e),
     };
+
+
+    let index = repo.index().unwrap();
+
+    let iitem = index.get_path(Path::new("Cargo.toml"), 0);
+    match iitem {
+        Some(_) => println!("In index"),
+        None => println!("not index")
+    }
+
+
+
+    let wts = repo.worktrees().unwrap();
+    for wt in wts.iter(){
+
+        println!("{:?}", wt);
+    }
+
+    // repo.worktree(name: &str, path: &Path, opts: Option<&WorktreeAddOptions<'a>>)
+    // let wt = git2::Worktree::open_from_repository(&repo).unwrap();
+
+    // println!("{}", wt.name().unwrap());
+    // println!("{}", wt);
     // ---------
+    println!("--------------");
 
     println!("world world world");
 }
