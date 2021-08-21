@@ -1,3 +1,4 @@
+use lscolors::{LsColors, Style};
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -19,12 +20,10 @@ fn find_git_root() -> PathBuf {
     here.to_path_buf()
 }
 
-fn is_tracked(p: &Path, index: &git2::Index) -> bool {
-    let groot = index.path().unwrap().parent().unwrap().parent().unwrap();
+fn is_tracked(p: &Path, app: &App) -> bool {
+    let rpath = pathdiff::diff_paths(p.canonicalize().unwrap(), app.git_root.as_path()).unwrap();
 
-    let rpath = pathdiff::diff_paths(p.canonicalize().unwrap(), groot).unwrap();
-
-    index.get_path(rpath.as_path(), 0).is_some()
+    app.index.get_path(rpath.as_path(), 0).is_some()
 }
 
 fn strip_dot(p: &Path) -> PathBuf {
@@ -32,31 +31,31 @@ fn strip_dot(p: &Path) -> PathBuf {
 }
 
 fn main() {
-    // println!("Hello, world!");
-
-    // ---------
-
-    // ---------
-    // println!("--------------");
-    use git2::Repository;
-
     let git_root = find_git_root();
     // println!("Git root: {:?}", git_root);
-    //
-    let repo = match Repository::open(git_root) {
+
+    let repo = match git2::Repository::open(git_root.as_path()) {
         Ok(repo) => repo,
         Err(e) => panic!("failed to open: {}", e),
     };
 
     let index = repo.index().unwrap();
 
-    let wts = repo.worktrees().unwrap();
-    for wt in wts.iter() {
-        println!("{:?}", wt);
-    }
+    let app: App = App {
+        git_root,
+        index,
+        lscolors: LsColors::from_env().unwrap_or_default(),
+    };
 
     // println!("--------------");
-    foobar(&index);
+
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.is_empty() {
+        let dot = Path::new(".");
+        printdir(&dot, &app);
+    } else {
+    }
     // println!("world world world");
 }
 
@@ -68,9 +67,9 @@ enum Trackedness {
 }
 
 // Recursivly check all children of p
-fn has_tracked(p: &Path, index: &git2::Index) -> Trackedness {
+fn has_tracked(p: &Path, app: &App) -> Trackedness {
     if p.is_file() {
-        match is_tracked(p, &index) {
+        match is_tracked(p, &app) {
             true => return Trackedness::All,
             false => return Trackedness::None,
         }
@@ -90,7 +89,7 @@ fn has_tracked(p: &Path, index: &git2::Index) -> Trackedness {
         let epathbuf = entry.unwrap().path();
         let epath = epathbuf.as_path();
 
-        match has_tracked(epath, &index) {
+        match has_tracked(epath, &app) {
             Trackedness::All => any_tracked = true,
             Trackedness::Some => {
                 any_tracked = true;
@@ -115,17 +114,20 @@ fn has_tracked(p: &Path, index: &git2::Index) -> Trackedness {
     }
 }
 
-fn foobar(index: &git2::Index) {
-    use lscolors::{LsColors, Style};
-    let lscolors = LsColors::from_env().unwrap_or_default();
+struct App {
+    git_root: PathBuf,
+    index: git2::Index,
+    lscolors: LsColors,
+}
 
-    let dot = Path::new(".");
+fn printdir(dot: &Path, app: &App) {
     let ddir = dot.read_dir().unwrap();
     for x in ddir {
         let xx = x.unwrap().path();
         let p = xx.as_path();
 
-        let style = lscolors
+        let style = app
+            .lscolors
             .style_for_path(p)
             .map(Style::to_ansi_term_style)
             .unwrap_or_default();
@@ -133,10 +135,16 @@ fn foobar(index: &git2::Index) {
         // let color_p = format!("{}", style.paint(p.to_str().unwrap()));
         let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
         if p.is_dir() {
-            println!("d {}", color_p);
-            let track = has_tracked(p, &index);
-            println!("{:?}", track);
-        } else if is_tracked(p, &index) {
+            let track = has_tracked(p, &app);
+            let indicator = match track {
+                Trackedness::All => "*",
+                Trackedness::Some => "+",
+                Trackedness::None => "^",
+            };
+            // println!("{:?}{}", track, indicator);
+            // println!("d {}", color_p);
+            println!("{} {}", color_p, indicator);
+        } else if is_tracked(p, &app) {
             println!("t {}", color_p);
         } else {
             println!("u {}", color_p);
