@@ -33,7 +33,7 @@ fn is_tracked(p: &Path, app: &App) -> bool {
 fn strip_dot(p: &Path) -> PathBuf {
     // Must be a smarter way to do this
     // Also this returns nothing for './'. Bit of a problem
-    p.into_iter().filter(|&x| x != ".").collect()
+    p.iter().filter(|&x| x != ".").collect()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,7 +54,7 @@ fn dir_track_indecator(track: Trackedness) -> &'static str {
 // Recursivly check all children of p
 fn has_tracked(p: &Path, app: &App) -> Trackedness {
     if p.is_file() {
-        match is_tracked(p, &app) {
+        match is_tracked(p, app) {
             true => return Trackedness::All,
             false => return Trackedness::None,
         }
@@ -74,7 +74,7 @@ fn has_tracked(p: &Path, app: &App) -> Trackedness {
         let epathbuf = entry.unwrap().path();
         let epath = epathbuf.as_path();
 
-        match has_tracked(epath, &app) {
+        match has_tracked(epath, app) {
             Trackedness::All => any_tracked = true,
             Trackedness::Some => {
                 any_tracked = true;
@@ -90,12 +90,12 @@ fn has_tracked(p: &Path, app: &App) -> Trackedness {
 
     if any_tracked {
         if any_untracked {
-            return Trackedness::Some;
+            Trackedness::Some
         } else {
-            return Trackedness::All;
+            Trackedness::All
         }
     } else {
-        return Trackedness::None;
+        Trackedness::None
     }
 }
 
@@ -120,13 +120,13 @@ fn printdir(dot: &Path, app: &App) {
         // let color_p = format!("{}", style.paint(p.to_str().unwrap()));
         let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
         if p.is_dir() {
-            let track = has_tracked(p, &app);
+            let track = has_tracked(p, app);
             let indicator = dir_track_indecator(track);
             match track {
                 Trackedness::None => {}
                 _ => println!("{} {}", color_p, indicator),
             };
-        } else if is_tracked(p, &app) {
+        } else if is_tracked(p, app) {
             println!("{}", color_p);
         } else {
             // Not tracked
@@ -159,7 +159,7 @@ fn main() {
 
     if args.len() == 1 {
         let dot = Path::new(".");
-        printdir(&dot, &app);
+        printdir(dot, &app);
     } else {
         // Different from printdir in that this will print a level of directories as their name and their contents
         // todo combine?
@@ -191,11 +191,11 @@ fn main() {
                         line_space = true;
                     }
                 };
+            } else if is_tracked(p, &app) {
+                println!("{}", color_p);
+                line_space = false;
             } else {
-                if is_tracked(p, &app) {
-                    println!("{}", color_p);
-                    line_space = false;
-                }
+                // TODO option of show untracked file?
             }
         }
     }
