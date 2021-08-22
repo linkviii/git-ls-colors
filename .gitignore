@@ -2,6 +2,9 @@
 /target
 
 #
+/.vscode
+
+#
 *.bak
 *.swp
 *.tmp

@@ -50,20 +50,58 @@ fn main() {
     // println!("--------------");
 
     let args: Vec<String> = std::env::args().collect();
+    // println!("Args: {:?}", args);
 
-    if args.is_empty() {
+    if args.len() == 1 {
         let dot = Path::new(".");
         printdir(&dot, &app);
     } else {
+        for x in &args[1..] {
+            let p = Path::new(&x);
+            let style = app
+                .lscolors
+                .style_for_path(p)
+                .map(Style::to_ansi_term_style)
+                .unwrap_or_default();
+
+            let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
+
+            if p.is_dir() {
+                let track = has_tracked(p, &app);
+
+                let indicator = dir_track_indecator(track);
+                match track {
+                    Trackedness::None => {}
+                    _ => {
+                        println!("{}: {}", color_p, indicator);
+                        printdir(p, &app);
+                        println!();
+                    }
+                };
+            } else {
+                if is_tracked(p, &app) {
+                    println!("{}", color_p);
+                }
+            }
+        }
     }
     // println!("world world world");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Trackedness {
     All,
     Some,
     None,
+}
+
+// I think returning static ref makes sense?
+fn dir_track_indecator(track: Trackedness) -> &'static str {
+    match track {
+        Trackedness::All => "*",
+        Trackedness::Some => "+",
+        Trackedness::None => "^",
+    }
 }
 
 // Recursivly check all children of p
@@ -136,18 +174,16 @@ fn printdir(dot: &Path, app: &App) {
         let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
         if p.is_dir() {
             let track = has_tracked(p, &app);
-            let indicator = match track {
-                Trackedness::All => "*",
-                Trackedness::Some => "+",
-                Trackedness::None => "^",
+            let indicator = dir_track_indecator(track);
+            match track {
+                Trackedness::None => {}
+                _ => println!("{} {}", color_p, indicator),
             };
-            // println!("{:?}{}", track, indicator);
-            // println!("d {}", color_p);
-            println!("{} {}", color_p, indicator);
         } else if is_tracked(p, &app) {
-            println!("t {}", color_p);
+            println!("{}", color_p);
         } else {
-            println!("u {}", color_p);
+            // Not tracked
+            // println!("{}", color_p);
         }
     }
 }
