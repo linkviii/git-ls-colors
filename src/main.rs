@@ -1,3 +1,7 @@
+/// Git LS Color - List tracked files in color
+/// Directories:
+/// *) All files in the directory are tracked
+/// +) Some files in the directory are tracked, but not all
 use lscolors::{LsColors, Style};
 use std::path::Path;
 use std::path::PathBuf;
@@ -27,6 +31,8 @@ fn is_tracked(p: &Path, app: &App) -> bool {
 }
 
 fn strip_dot(p: &Path) -> PathBuf {
+    // Must be a smarter way to do this
+    // Also this returns nothing for './'. Bit of a problem
     p.into_iter().filter(|&x| x != ".").collect()
 }
 
@@ -37,7 +43,6 @@ enum Trackedness {
     None,
 }
 
-// I think returning static ref makes sense?
 fn dir_track_indecator(track: Trackedness) -> &'static str {
     match track {
         Trackedness::All => "*",
@@ -156,6 +161,9 @@ fn main() {
         let dot = Path::new(".");
         printdir(&dot, &app);
     } else {
+        // Different from printdir in that this will print a level of directories as their name and their contents
+        // todo combine?
+
         let mut line_space = true;
         for x in &args[1..] {
             let p = Path::new(&x);
