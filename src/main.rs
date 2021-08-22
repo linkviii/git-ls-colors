@@ -30,64 +30,6 @@ fn strip_dot(p: &Path) -> PathBuf {
     p.into_iter().filter(|&x| x != ".").collect()
 }
 
-fn main() {
-    let git_root = find_git_root();
-    // println!("Git root: {:?}", git_root);
-
-    let repo = match git2::Repository::open(git_root.as_path()) {
-        Ok(repo) => repo,
-        Err(e) => panic!("failed to open: {}", e),
-    };
-
-    let index = repo.index().unwrap();
-
-    let app: App = App {
-        git_root,
-        index,
-        lscolors: LsColors::from_env().unwrap_or_default(),
-    };
-
-    // println!("--------------");
-
-    let args: Vec<String> = std::env::args().collect();
-    // println!("Args: {:?}", args);
-
-    if args.len() == 1 {
-        let dot = Path::new(".");
-        printdir(&dot, &app);
-    } else {
-        for x in &args[1..] {
-            let p = Path::new(&x);
-            let style = app
-                .lscolors
-                .style_for_path(p)
-                .map(Style::to_ansi_term_style)
-                .unwrap_or_default();
-
-            let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
-
-            if p.is_dir() {
-                let track = has_tracked(p, &app);
-
-                let indicator = dir_track_indecator(track);
-                match track {
-                    Trackedness::None => {}
-                    _ => {
-                        println!("{}: {}", color_p, indicator);
-                        printdir(p, &app);
-                        println!();
-                    }
-                };
-            } else {
-                if is_tracked(p, &app) {
-                    println!("{}", color_p);
-                }
-            }
-        }
-    }
-    // println!("world world world");
-}
-
 #[derive(Debug, Clone, Copy)]
 enum Trackedness {
     All,
@@ -184,6 +126,69 @@ fn printdir(dot: &Path, app: &App) {
         } else {
             // Not tracked
             // println!("{}", color_p);
+        }
+    }
+}
+
+fn main() {
+    let git_root = find_git_root();
+    // println!("Git root: {:?}", git_root);
+
+    let repo = match git2::Repository::open(git_root.as_path()) {
+        Ok(repo) => repo,
+        Err(e) => panic!("failed to open: {}", e),
+    };
+
+    let index = repo.index().unwrap();
+
+    let app: App = App {
+        git_root,
+        index,
+        lscolors: LsColors::from_env().unwrap_or_default(),
+    };
+
+    // println!("--------------");
+
+    let args: Vec<String> = std::env::args().collect();
+    // println!("Args: {:?}", args);
+
+    if args.len() == 1 {
+        let dot = Path::new(".");
+        printdir(&dot, &app);
+    } else {
+        let mut line_space = true;
+        for x in &args[1..] {
+            let p = Path::new(&x);
+            let style = app
+                .lscolors
+                .style_for_path(p)
+                .map(Style::to_ansi_term_style)
+                .unwrap_or_default();
+
+            let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
+
+            if p.is_dir() {
+                let track = has_tracked(p, &app);
+
+                let indicator = dir_track_indecator(track);
+                match track {
+                    Trackedness::None => {}
+                    _ => {
+                        if !line_space {
+                            println!();
+                        }
+                        println!("{}: {}", color_p, indicator);
+                        printdir(p, &app);
+                        println!();
+                        line_space = true;
+                    }
+                };
+            } else {
+                if is_tracked(p, &app) {
+                    println!("{}", color_p);
+                    line_space = false;
+                }
+            }
         }
     }
 }
