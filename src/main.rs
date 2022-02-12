@@ -15,7 +15,7 @@ fn find_git_root() -> PathBuf {
         match here.parent() {
             Some(p) => here = p,
             None => {
-                println!("Not in a git repo");
+                println!("Not in a git repo.");
                 std::process::exit(1);
             }
         }
@@ -28,12 +28,14 @@ fn is_tracked(p: &Path, app: &App) -> bool {
     let tmp = if p.is_file() {
         p.canonicalize().unwrap()
     } else {
+        // Absolute path to the symlink file
         p.parent()
             .unwrap()
             .canonicalize()
             .unwrap()
             .join(p.file_name().unwrap())
     };
+    // Path relative to git root
     let rpath = pathdiff::diff_paths(tmp, app.git_root.as_path()).unwrap();
 
     app.index.get_path(rpath.as_path(), 0).is_some()
@@ -42,7 +44,12 @@ fn is_tracked(p: &Path, app: &App) -> bool {
 fn strip_dot(p: &Path) -> PathBuf {
     // Must be a smarter way to do this
     // Also this returns nothing for './'. Bit of a problem
-    p.iter().filter(|&x| x != ".").collect()
+    let mut tmp: PathBuf = p.iter().filter(|&x| x != ".").collect();
+    // Easy enough to restore though
+    if tmp.as_os_str().is_empty() {
+        tmp.set_file_name(".");
+    }
+    tmp
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -117,16 +124,24 @@ fn has_tracked(p: &Path, app: &App) -> Trackedness {
 }
 
 struct App {
+    // Direcory containing the `.git` project folder
     git_root: PathBuf,
     index: git2::Index,
     lscolors: LsColors,
 }
 
+fn sorted_dir_entries(dir: &Path) -> Vec<PathBuf> {
+    let read = dir.read_dir().unwrap();
+    let mut entries: Vec<PathBuf> = read.map(|e| e.unwrap().path()).collect();
+    entries.sort();
+    entries
+}
+
 fn printdir(dot: &Path, app: &App) {
-    let ddir = dot.read_dir().unwrap();
-    for x in ddir {
-        let xx = x.unwrap().path();
-        let p = xx.as_path();
+    let entries = sorted_dir_entries(dot);
+
+    for x in entries {
+        let p = x.as_path();
 
         let style = app
             .lscolors
