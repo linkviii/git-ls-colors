@@ -139,8 +139,9 @@ fn sorted_dir_entries(dir: &Path) -> Vec<PathBuf> {
 
 fn printdir(dot: &Path, app: &App) {
     let entries = sorted_dir_entries(dot);
+    let mut untracked: Vec<&PathBuf> = Vec::new();
 
-    for x in entries {
+    for x in entries.iter() {
         let p = x.as_path();
 
         let style = app
@@ -162,7 +163,23 @@ fn printdir(dot: &Path, app: &App) {
             println!("{}", color_p);
         } else {
             // Not tracked
-            // println!("{}", color_p);
+            untracked.push(x);
+        }
+    }
+
+    let display_untracked = true;
+
+    if display_untracked {
+
+        println!("\n-- UNTRACKED --");
+        for p in untracked {
+            let style = app
+                .lscolors
+                .style_for_path(p)
+                .map(Style::to_ansi_term_style)
+                .unwrap_or_default();
+            let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
+            println!("{} -", color_p);
         }
     }
 }
