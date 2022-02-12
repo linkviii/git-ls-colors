@@ -25,7 +25,16 @@ fn find_git_root() -> PathBuf {
 }
 
 fn is_tracked(p: &Path, app: &App) -> bool {
-    let rpath = pathdiff::diff_paths(p.canonicalize().unwrap(), app.git_root.as_path()).unwrap();
+    let tmp = if p.is_file() {
+        p.canonicalize().unwrap()
+    } else {
+        p.parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap()
+            .join(p.file_name().unwrap())
+    };
+    let rpath = pathdiff::diff_paths(tmp, app.git_root.as_path()).unwrap();
 
     app.index.get_path(rpath.as_path(), 0).is_some()
 }
@@ -53,12 +62,20 @@ fn dir_track_indecator(track: Trackedness) -> &'static str {
 
 // Recursivly check all children of p
 fn has_tracked(p: &Path, app: &App) -> Trackedness {
-    if p.is_file() {
+    if p.is_file() || p.is_symlink() {
         match is_tracked(p, app) {
             true => return Trackedness::All,
             false => return Trackedness::None,
         }
     }
+
+    // Early exit on the git folder
+    let absolute = p.canonicalize().unwrap();
+    if absolute == app.git_root.join(".git") {
+        return Trackedness::None;
+    }
+    // Should sub repos have a special case?
+    // Should any folder called `.git` be ignored?
 
     let mut any_tracked = false;
     let mut any_untracked = false;
@@ -119,7 +136,7 @@ fn printdir(dot: &Path, app: &App) {
 
         // let color_p = format!("{}", style.paint(p.to_str().unwrap()));
         let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
-        if p.is_dir() {
+        if p.is_dir() && !p.is_symlink() {
             let track = has_tracked(p, app);
             let indicator = dir_track_indecator(track);
             match track {
@@ -175,7 +192,7 @@ fn main() {
 
             let color_p = format!("{}", style.paint(strip_dot(p).to_str().unwrap()));
 
-            if p.is_dir() {
+            if p.is_dir() && !p.is_symlink() {
                 let track = has_tracked(p, &app);
 
                 let indicator = dir_track_indecator(track);
